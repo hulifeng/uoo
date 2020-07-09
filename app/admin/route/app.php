@@ -2,16 +2,6 @@
 
 declare(strict_types=1);
 
-/*
- * This file is part of TAnt.
- * @link     https://github.com/edenleung/think-admin
- * @document https://www.kancloud.cn/manual/thinkphp6_0
- * @contact  QQ Group 996887666
- * @author   Eden Leung 758861884@qq.com
- * @copyright 2019 Eden Leung
- * @license  https://github.com/edenleung/think-admin/blob/6.0/LICENSE.txt
- */
-
 use think\facade\Route;
 use xiaodi\JWTAuth\Middleware\Jwt;
 use app\admin\middleware\Permission;
@@ -87,23 +77,48 @@ Route::group('/system', function () {
     Route::rule('/post/:id', 'system.post/delete', 'DELETE')->middleware(Permission::class, 'DeletePost');
 })->middleware(Jwt::class);
 
+// 轮播
 Route::group('/article', function () {
-    Route::get('/category$', 'system.articleCategory/list')->middleware(Permission::class, 'FetchArticleCategory');
-    Route::post('/category$', 'system.articleCategory/create')->middleware(Permission::class, 'CreateArticleCategory');
-    Route::put('/category/:id$', 'system.articleCategory/update')->middleware(Permission::class, 'UpdateArticleCategory');
-    Route::delete('/category/:id$', 'system.articleCategory/delete')->middleware(Permission::class, 'DeleteArticleCategory');
-
-    Route::get('/', 'system.article/list')->middleware(Permission::class, 'FetchArticle');
-    Route::get('/:id$', 'system.article/info')->middleware(Permission::class, 'GetArticle');
-    Route::post('/', 'system.article/create')->middleware(Permission::class, 'CreateArticle');
-    Route::put('/:id', 'system.article/update')->middleware(Permission::class, 'UpdateArticle');
-    Route::delete('/:id', 'system.article/delete')->middleware(Permission::class, 'DeleteArticle');
+    Route::rule('/', 'content.article/list', 'GET')->middleware(Permission::class, 'ArticleGet');
+    Route::rule('/', 'content.article/create', 'POST')->middleware(Permission::class, 'ArticlePost');
+    Route::rule('/', 'content.article/delete', 'DELETE')->middleware(Permission::class, 'ArticleDELETE');
 })->middleware(Jwt::class);
 
-// 模拟数据（可删除）
-Route::group('/mock', function () {
-    Route::rule('/list/search/projects', 'mock/projects', 'GET');
-    Route::rule('/workplace/activity', 'mock/activity', 'GET');
-    Route::rule('/workplace/radar', 'mock/radar', 'GET');
-    Route::rule('/workplace/teams', 'mock/teams', 'GET');
-});
+// 房源
+Route::group('/house', function () {
+    Route::rule('/', 'content.house/list', 'GET')->middleware(Permission::class, 'HouseGet');
+    Route::rule('/link', 'content.house/link', 'GET')->middleware(Permission::class, 'HouseLink');
+    Route::rule('/', 'content.house/create', 'POST')->middleware(Permission::class, 'HousePost');
+    Route::rule('/', 'content.house/delete', 'DELETE')->middleware(Permission::class, 'HouseDelete');
+})->middleware(Jwt::class);
+
+// 文章
+Route::group('/article', function () {
+    Route::rule('/', 'content.article/list', 'GET')->middleware(Permission::class, 'ArticleGet');
+    Route::rule('/link', 'content.article/link', 'GET')->middleware(Permission::class, 'ArticleLink');
+    Route::rule('/', 'content.article/create', 'POST')->middleware(Permission::class, 'ArticlePost');
+    Route::rule('/', 'content.article/delete', 'DELETE')->middleware(Permission::class, 'ArticleDelete');
+})->middleware(Jwt::class);
+
+// 城市
+Route::group('/city', function () {
+    Route::rule('/', 'content.city/list', 'GET')->middleware(Permission::class, 'CityGet');
+})->middleware(Jwt::class);
+
+// 数据分析
+Route::group('/statistics', function () {
+    Route::rule('/trend', 'content.statistics/trend', 'GET')->middleware(Permission::class, 'TrendGet');
+    Route::rule('/liveness', 'content.statistics/liveness', 'GET')->middleware(Permission::class, 'LivenessGet');
+    Route::rule('/pageres', 'content.statistics/pageres', 'GET')->middleware(Permission::class, 'PageresGet');
+    Route::rule('/dashboard', 'content.statistics/dashboard', 'GET')->middleware(Permission::class, 'DashboardGet');
+    Route::rule('/user', 'content.statistics/user', 'GET')->middleware(Permission::class, 'UooLuUserGet');
+    Route::rule('/share', 'content.statistics/share', 'GET')->middleware(Permission::class, 'UooLuUserShare');
+})->middleware(Jwt::class);
+
+// 表单验证
+Route::group('form', function () {
+    Route::rule('/', 'content.form/list', 'GET')->middleware(Permission::class, 'FormList');
+    Route::rule('/:id$', 'content.form/show', 'GET')->middleware(Permission::class, 'FormShow');
+    Route::rule('/:id$', 'content.form/save', 'POST')->middleware(Permission::class, 'FormSave');
+})->middleware(Jwt::class);
+

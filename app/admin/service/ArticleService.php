@@ -1,83 +1,84 @@
 <?php
-
-declare(strict_types=1);
-
-/*
- * This file is part of TAnt.
- * @link     https://github.com/edenleung/think-admin
- * @document https://www.kancloud.cn/manual/thinkphp6_0
- * @contact  QQ Group 996887666
- * @author   Eden Leung 758861884@qq.com
- * @copyright 2019 Eden Leung
- * @license  https://github.com/edenleung/think-admin/blob/6.0/LICENSE.txt
+/**
+ * Created by PhpStorm.
+ * User: Administrator
+ * Date: 2020/6/18 0018
+ * Time: 0:19
  */
 
 namespace app\admin\service;
 
 use app\BaseService;
 use app\common\model\Article;
+use GuzzleHttp\Client;
 
 class ArticleService extends BaseService
 {
-    public function __construct(Article $model)
+    public function __construct(Article $article)
     {
-        $this->model = $model;
+        $this->model = $article;
     }
 
-    public function list(int $pageNo, int $pageSize, $params = [])
+    public function getList(int $pageNo, int $pageSize)
     {
-        $query = $this->model->alias('a');
-
-        if (isset($params['status'])) {
-            $query->where('a.status', $params['status']);
-        }
-
-        if (isset($params['title']) && !empty($params['title'])) {
-            $query->whereLike('a.title', '%' . $params['title'] . '%');
-        }
-
-        if (!empty($params['cid'])) {
-            $query->where('c.id', $params['cid']);
-        }
-
-        $query->join('article_category c', 'a.category_id = c.id')
-            ->order('top desc, a.id desc')
-            ->field('a.id, a.image, a.title, a.top, a.sort, a.create_time, a.update_time, a.status, c.name as category_name');
-
-        $data = $query->paginate([
-            'list_rows' => $pageSize,
-            'page'      => $pageNo,
-        ]);
+        $total = $this->model->where('is_entering', 1)->count();
+        $totalPage = ceil($total / $pageSize);
+        $articles = $this->model->field(['id', 'title', 'sub_title', 'cover', 'user_name', 'user_avatar'])->where('is_entering', 1)->page($pageNo)->limit($pageSize)->order('create_time desc')->select();
 
         return [
-            'data'       => $data->items(),
+            'data'       => $articles,
             'pageSize'   => $pageSize,
             'pageNo'     => $pageNo,
-            'totalPage'  => count($data->items()),
-            'totalCount' => $data->total(),
+            'totalPage'  => $totalPage,
+            'totalCount' => $total,
         ];
     }
 
-    public function create(array $data)
+    public function getLinkData($id, $uid)
     {
-        return $this->model->save($data);
+        $client = new Client();
+
+        $config = config('uoolu');
+
+        $url = $config['url']['article_url'] . $id;
+
+        $response = $client->get($url);
+
+        $responseJson = json_decode($response->getBody()->getContents(), true);
+
+        if ($responseJson['code'] != 100 || empty($responseJson['data'])) return false;
+
+        $articleData = $responseJson['data'];
+        $articleData['link_id'] = $articleData['id'];
+        $articleData['entering_user_id'] = $uid;
+        $articleData['content'] = str_replace("<img ", "<img width='100%'", $articleData['content']);
+        unset($articleData['id']);
+
+        $articleId = $this->model->where('link_id', $id)->value('id');
+        if (!$articleId) {
+            $article = $this->model->create($articleData);
+            $articleId = $article->id;
+        }
+
+        $returnData = $articleData;
+        $returnData['id'] = $articleId;
+
+        return $returnData;
     }
 
-    public function update($id, array $data)
+    public function add($id)
     {
-        return $this->model->find($id)->save($data);
+        return $this->model->find($id)->save(['is_entering' => 1]);
     }
 
-    public function delete($id)
+    public function remove($id)
     {
-        return $this->model->find($id)->delete();
-    }
+        $ids = explode(',', $id);
 
-    public function info($id)
-    {
-        return $this->model->alias('a')
-            ->join('article_category c', 'c.id = a.category_id')
-            ->field('a.*, c.name as category_name')
-            ->find($id);
+        if (empty($ids)) {
+            return false;
+        }
+
+        return $this->model->whereIn('id', $ids)->select()->delete();
     }
 }
