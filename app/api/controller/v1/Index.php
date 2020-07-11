@@ -14,6 +14,7 @@ use app\common\model\Article;
 use app\common\model\City;
 use app\common\model\Collection;
 use app\common\model\House;
+use app\common\model\Search;
 use app\common\model\Share;
 use app\common\model\ShareLog;
 use app\common\model\Form;
@@ -22,10 +23,13 @@ use app\common\model\UserBehavior;
 use app\common\model\UserBehaviorLog;
 use app\Request;
 use GuzzleHttp\Client;
+use think\Db;
+use think\Exception;
 
 class Index extends BaseController
 {
     private $config;
+    protected $log;
 
     public function __construct()
     {
@@ -42,7 +46,7 @@ class Index extends BaseController
             $send = [];
             $pageSize = 10;
             $carousel = [];
-            if ($pageNo == 1) $carousel = Article::field(['id', 'title', 'sub_title' => 'desc', 'cover' => 'image'])->order('create_time desc')->select();
+            if ($pageNo == 1) $carousel = Article::field(['id', 'title', 'sub_title' => 'desc', 'cover' => 'image'])->limit(5)->order('is_top desc, update_time desc, create_time desc')->select();
             $send['carousel'] = $carousel;
 
             // 数据
@@ -61,8 +65,16 @@ class Index extends BaseController
     {
         try {
             if (!$id) return $this->sendError('缺省参数！');
-            $article = Article::field(['title', 'sub_title', 'content', 'create_time'])->find($id);
+            $article = Article::field(['title', 'sub_title', 'content', 'create_time'])->find($id)->toArray();
             $article['content'] = str_replace('<p><br/></p>', '', $article['content']);
+            $article['is_collection'] = 0;
+            $article['is_like'] = 0;
+            if (request()->param('user_id')) {
+                $is_collection = Collection::where("house_id", $id)->where("user_id", request()->param('user_id'))->where('type', 1)->value('id');
+                $article['is_collection'] = isset($is_collection) && $is_collection ? 1 : 0;
+                $is_like = Collection::where("house_id", $id)->where("user_id", request()->param('user_id'))->where('type', 3)->value('id');
+                $article['is_like'] = isset($is_like) && $is_like ? 1 : 0;
+            }
             return $this->sendSuccess($article);
         } catch (\Exception $exception) {
             return $this->sendError('服务器异常');
@@ -112,26 +124,40 @@ class Index extends BaseController
     {
         try {
             if (!$request->param('type')) return $this->sendError('缺省参数！');
+            $type = $request->param('type');
             $order = 'create_time desc';
-            $where = [];
-            $whereOr = [];
-            $where[] = ['type', '=', $request->param('type')];
-            if ($request->param('price')) {
-                $between = explode('_', $request->param('price'));
-                $where[] = ['min_price_rmb', '>=', $between[0]];
-                $where[] = ['max_price_rmb', '<=', $between[1]];
-            }
-            if ($request->param('choose_type')) {
-                $between = explode(':', $request->param('choose_type'));
+            $price = request()->param('price');
+            $area = request()->param('area');
+            $choose_type = request()->param('choose_type');
+            if ($choose_type) {
+                $between = explode(':', $choose_type);
                 $order = "{$between[0]} {$between[1]}";
             }
-            if ($request->param('area') && !in_array($request->param('area'), [0])) {
-                $where[] = ['country', '=', $request->param('area')];
-                $whereOr[] = ['province', '=', $request->param('area')];
-            }
             $field = ['id', 'name', 'desc', 'keywords' => 'tags', 'first_image' => 'image', 'recommend', 'price', 'recent', 'location' => 'city'];
-            $total = House::where($where)->whereOr($whereOr)->count();
-            $houses = House::where($where)->whereOr($whereOr)->field($field)->page($request->param('page'))->limit(10)->order($order)->select();
+            $total = House::where(function ($query) use ($type) {
+                $query->where('type', '=', $type);
+            })->where(function ($query) use ($price) {
+                if ($price) {
+                    $between = explode('_', $price);
+                    $query->where('min_price_rmb', '>=', $between[0])->where('max_price_rmb', '<=', $between[1]);
+                }
+            })->where(function ($query) use ($area) {
+                if ($area && !in_array($area, [0])) {
+                    $query->where('country', '=', $area)->whereOr('city', '=', $area);
+                }
+            })->count();
+            $houses = House::where(function ($query) use ($type) {
+                $query->where('type', '=', $type);
+            })->where(function ($query) use ($price) {
+                if ($price) {
+                    $between = explode('_', $price);
+                    $query->where('min_price_rmb', '>=', $between[0])->where('max_price_rmb', '<=', $between[1]);
+                }
+            })->where(function ($query) use ($area) {
+                if ($area && !in_array($area, [0])) {
+                    $query->where('country', '=', $area)->whereOr('city', '=', $area);
+                }
+            })->field($field)->page($request->param('page'))->limit(10)->order($order)->select();
             foreach ($houses as &$value) {
                 $value['tags'] = explode(',', $value['tags']);
             }
@@ -149,25 +175,38 @@ class Index extends BaseController
         try {
             if (!$keywords) return $this->sendError('缺省参数！');
             $order = 'create_time desc';
-            $where = [];
-            $whereOr = [];
-            if (request()->param('price')) {
-                $between = explode('_', request()->param('price'));
-                $where[] = ['min_price_rmb', '>=', $between[0]];
-                $where[] = ['max_price_rmb', '<=', $between[1]];
-            }
-            if (request()->param('choose_type')) {
-                $between = explode(':', request()->param('choose_type'));
+            $price = request()->param('price');
+            $choose_type = request()->param('choose_type');
+            if ($choose_type) {
+                $between = explode(':', $choose_type);
                 $order = "{$between[0]} {$between[1]}";
             }
-            if (request()->param('area') && !in_array(request()->param('area'), [0])) {
-                $where[] = ['country', '=', request()->param('area')];
-                $whereOr[] = ['province', '=', request()->param('area')];
-            }
-            $where[] = ['name', 'like', "%$keywords%"];
-            $whereLocation[] = ['location', 'like', "%$keywords%"];
-            $total = House::where($where)->whereOr($whereLocation)->whereOr($whereOr)->count();
-            $houses = House::where($where)->whereOr($whereLocation)->whereOr($whereOr)->page($pageNo)->limit(10)->field(['id', 'name', 'desc', 'keywords' => 'tags', 'first_image' => 'image', 'recommend', 'price', 'recent', 'location' => 'city'])->order($order)->select();
+            $area = request()->param('area');
+            $field = ['id', 'name', 'desc', 'keywords' => 'tags', 'first_image' => 'image', 'recommend', 'price', 'recent', 'location' => 'city'];
+            $total = House::where(function ($query) use ($keywords) {
+                $query->where('name', 'like', "%$keywords%")->whereOr('location', 'like', "%$keywords%");
+            })->where(function ($query) use ($price) {
+                if ($price) {
+                    $between = explode('_', $price);
+                    $query->where('min_price_rmb', '>=', $between[0])->where('max_price_rmb', '<=', $between[1]);
+                }
+            })->where(function ($query) use ($area) {
+                if ($area && !in_array($area, [0])) {
+                    $query->where('country', '=', $area)->whereOr('city', '=', $area);
+                }
+            })->count();
+            $houses = House::where(function ($query) use ($keywords) {
+                $query->where('name', 'like', "%$keywords%")->whereOr('location', 'like', "%$keywords%");
+            })->where(function ($query) use ($price) {
+                if ($price) {
+                    $between = explode('_', $price);
+                    $query->where('min_price_rmb', '>=', $between[0])->where('max_price_rmb', '<=', $between[1]);
+                }
+            })->where(function ($query) use ($area) {
+                if ($area && !in_array($area, [0])) {
+                    $query->where('country', '=', $area)->whereOr('city', '=', $area);
+                }
+            })->page($pageNo)->limit(10)->field($field)->order($order)->select();
             foreach ($houses as &$value) {
                 $value['tags'] = explode(',', $value['tags']);
             }
@@ -189,9 +228,10 @@ class Index extends BaseController
                 if (request()->param('article_id')) Article::where('id', request()->param('article_id'))->inc('view_count')->update();
             } else {
                 if (!request()->param('status')) {
-                    Collection::where('house_id', request()->param('house_id'))->where('type', 1)->where('user_id', request()->param('user_id'))->select()->delete();
+                    if (request()->param('house_id')) Collection::where('house_id', request()->param('house_id'))->where('type', request()->param('type'))->where('user_id', request()->param('user_id'))->select()->delete();
+                    if (request()->param('article_id')) Collection::where('article_id', request()->param('article_id'))->where('type', request()->param('type'))->where('user_id', request()->param('user_id'))->select()->delete();
                 } else {
-                    Collection::create(request()->only(['house_id', 'user_id']));
+                    Collection::create(request()->only(['article_id', 'house_id', 'user_id', 'type']));
                 }
             }
             return $this->sendSuccess();
@@ -245,20 +285,40 @@ class Index extends BaseController
     public function share_list()
     {
         try {
-            $field = ['id', 'name' => 'title', 'desc', 'keywords' => 'tags', 'price', 'location' => 'city', 'first_image' => 'image'];
-            $list = Share::where('user_id', request()->param('user_id'))->order("create_time desc")->column('house_id');
+            $field = ['id', 'name', 'desc', 'keywords' => 'tags', 'price', 'location' => 'city', 'first_image' => 'image'];
+            if (request()->param('column') == 'house_id') {
+                $list = Share::where('user_id', request()->param('user_id'))
+                    ->where('house_id', '>', 0)
+                    ->where('article_id', '=', 0)
+                    ->order("create_time desc")
+                    ->column('house_id');
+            } else {
+                $list = Share::where('user_id', request()->param('user_id'))
+                    ->where('article_id', '>', 0)
+                    ->where('house_id', '=', 0)
+                    ->order("create_time desc")
+                    ->column('article_id');
+            }
             $res = [];
             if (!empty($list)) {
-                $count = House::where('id', 'in', $list)->count();
-                $data = House::field($field)->page(request()->param('page'))->limit(10)->where('id', 'in', $list)->select();
-                if (sizeof($data)) {
-                    foreach ($data as &$value) {
-                        $value['tags'] = explode(',', $value['tags']);
-                        $value['image'] = json_decode($value['image'], true)[0]['url'];
+                if (request()->param('column') == 'house_id') {
+                    $count = House::where('id', 'in', $list)->count();
+                    $data = House::field($field)->page(request()->param('page'))->limit(10)->where('id', 'in', $list)->select();
+                    if (sizeof($data)) {
+                        foreach ($data as &$value) {
+                            $value['tags'] = explode(',', $value['tags']);
+                        }
                     }
+                } else {
+                    $articleField = ['id', 'title', 'cover', 'sub_title', 'user_name', 'user_avatar'];
+                    $count = Article::where('id', 'in', $list)->count();
+                    $data = Article::field($articleField)->page(request()->param('page'))->limit(10)->where('id', 'in', $list)->select();
                 }
-                $houseTotalPage = ceil($count / 10);
-                $res = ['data' => $data, 'pageNo' => request()->param('page'), 'totalPage' => $houseTotalPage, 'currentCount' => count($data), 'totalCount' => $count];
+
+                $totalPage = ceil($count / 10);
+                $res = ['data' => $data, 'pageNo' => request()->param('page'), 'totalPage' => $totalPage, 'currentCount' => count($data), 'totalCount' => $count];
+            } else {
+                $res = ['data' => [], 'pageNo' => request()->param('page'), 'totalPage' => 1, 'currentCount' => 0, 'totalCount' => 0];
             }
             return $this->sendSuccess($res);
         } catch (\Exception $exception) {
@@ -271,18 +331,39 @@ class Index extends BaseController
     {
         try {
             $field = ['id', 'name', 'desc', 'keywords' => 'tags', 'price', 'recommend', 'location' => 'city', 'first_image' => 'image'];
-            $list = Collection::where('user_id', request()->param('user_id'))->where('type', 1)->order("create_time desc")->column('house_id');
-            $res = [];
-            if (!empty($list)) {
-                $count = House::where('id', 'in', $list)->count();
-                $data = House::field($field)->page(request()->param('page'))->limit(10)->where('id', 'in', $list)->select();
-                if (sizeof($data)) {
-                    foreach ($data as &$value) {
-                        $value['tags'] = explode(',', $value['tags']);
+            $limit = 5;
+            $type = request()->param('type');
+            $column = request()->param('column');
+            $list = Collection::where('user_id', request()->param('user_id'))
+                ->where(function ($query) use ($type, $column) {
+                    $query->where('type', $type);
+                    if ($column == 'house_id') {
+                        $query->where('article_id', 0);
+                    } else {
+                        $query->where('house_id', 0);
                     }
+                })
+                ->order("create_time desc")
+                ->column($column);
+            if (!empty($list)) {
+                if (request()->param('column') == 'house_id') {
+                    $count = House::where('id', 'in', $list)->count();
+                    $data = House::field($field)->page(request()->param('page'))->limit($limit)->where('id', 'in', $list)->select();
+                    if (sizeof($data)) {
+                        foreach ($data as &$value) {
+                            $value['tags'] = explode(',', $value['tags']);
+                        }
+                    }
+                } else {
+                    $articleField = ['id', 'title', 'cover', 'sub_title', 'user_name', 'user_avatar'];
+                    $count = Article::where('id', 'in', $list)->count();
+                    $data = Article::field($articleField)->page(request()->param('page'))->limit($limit)->where('id', 'in', $list)->select();
                 }
-                $houseTotalPage = ceil($count / 10);
-                $res = ['data' => $data, 'pageNo' => request()->param('page'), 'totalPage' => $houseTotalPage, 'currentCount' => count($data), 'totalCount' => $count];
+
+                $totalPage = ceil($count / $limit);
+                $res = ['data' => $data, 'pageNo' => request()->param('page'), 'totalPage' => $totalPage, 'currentCount' => count($data), 'totalCount' => $count];
+            } else {
+                $res = ['data' => [], 'pageNo' => request()->param('page'), 'totalPage' => 1, 'currentCount' => 0, 'totalCount' => 0];
             }
             return $this->sendSuccess($res);
         } catch (\Exception $exception) {
@@ -349,18 +430,65 @@ class Index extends BaseController
         try {
             $type = request()->param('type', 2);
             $field = ['id', 'name', 'desc', 'keywords' => 'tags', 'price', 'recommend', 'location' => 'city', 'first_image' => 'image'];
-            $list = Collection::where('article_id', 0)->where('user_id', request()->param('user_id'))->where('type', $type)->group('house_id')->order("create_time desc")->column('house_id');
+            $user_id = request()->param('user_id');
+            if (request()->param('column') == 'house_id') {
+                $list = \think\facade\Db::query("SELECT 
+                          a.house_id
+                        FROM
+                          (SELECT 
+                            * 
+                          FROM
+                            collection 
+                            WHERE `type` = {$type} AND house_id > 0 AND user_id = {$user_id} and article_id = 0
+                          ORDER BY create_time DESC 
+                          LIMIT 100000000) a 
+                        GROUP BY a.house_id
+                        ORDER BY a.id desc");
+                if (sizeof($list)) {
+                    $list = array_column($list, 'house_id');
+                }
+            }
+            if (request()->param('column') == 'article_id') {
+                $list = \think\facade\Db::query("SELECT 
+                          a.article_id
+                        FROM
+                          (SELECT 
+                            * 
+                          FROM
+                            collection 
+                            WHERE `type` = {$type} AND article_id > 0 AND user_id = {$user_id} and house_id = 0
+                          ORDER BY create_time DESC 
+                          LIMIT 100000000) a 
+                        GROUP BY a.article_id
+                        ORDER BY a.id desc");
+                if (sizeof($list)) {
+                    $list = array_column($list, 'article_id');
+                }
+            }
             $res = [];
             if (!empty($list)) {
-                $count = House::where('id', 'in', $list)->count();
-                $data = House::field($field)->page(request()->param('page'))->limit(10)->where('id', 'in', $list)->select();
-                if (sizeof($data)) {
-                    foreach ($data as &$value) {
-                        $value['tags'] = explode(',', $value['tags']);
+                if (request()->param('column') == 'house_id') {
+                    $count = House::where('id', 'in', $list)->count();
+                    $data = House::field($field)
+                        ->page(request()->param('page'))
+                        ->where('id', 'in', $list)
+                        ->limit(10)->select();
+                    if (sizeof($data)) {
+                        foreach ($data as &$value) {
+                            $value['tags'] = explode(',', $value['tags']);
+                        }
                     }
                 }
+                if (request()->param('column') == 'article_id') {
+                    $articleField = ['id', 'title', 'cover', 'sub_title', 'user_name', 'user_avatar'];
+                    $count = Article::where('id', 'in', $list)->count();
+                    $data = Article::field($articleField)->page(request()->param('page'))->limit(10)->where('id', 'in', $list)->select();
+                }
+
                 $houseTotalPage = ceil($count / 10);
                 $res = ['data' => $data, 'pageNo' => request()->param('page'), 'totalPage' => $houseTotalPage, 'currentCount' => count($data), 'totalCount' => $count];
+            } else {
+                $res = ['data' => [], 'pageNo' => request()->param('page'), 'totalPage' => 1, 'currentCount' => 0, 'totalCount' => 0];
             }
             return $this->sendSuccess($res);
         } catch (\Exception $exception) {
@@ -371,10 +499,12 @@ class Index extends BaseController
     public function my()
     {
         try {
-            $view_count = Collection::where("user_id", request()->param('user_id'))->where("article_id", 0)->where("type", 2)->group('house_id')->count();
+            $view_count = Collection::where("user_id", request()->param('user_id'))->where("type", 2)->group('user_id, house_id, article_id')->count();
             $collection_count = Collection::where("user_id", request()->param('user_id'))->where("type", 1)->count();
             $like_count = Collection::where("user_id", request()->param('user_id'))->where("type", 3)->count();
-            return $this->sendSuccess(['view' => $view_count, 'like' => $like_count, 'collection' => $collection_count]);
+            $user_info = UooUser::where("id", request()->param('user_id'))->field(['nickname', 'avatar'])->find();
+            $mapping_result = Form::where("user_id", request()->param('user_id'))->where('type', '1')->order('create_time desc')->value('id');
+            return $this->sendSuccess(['view' => $view_count, 'like' => $like_count, 'collection' => $collection_count, 'user_info' => $user_info, 'mapping_id' => $mapping_result]);
         } catch (\Exception $exception) {
             return $this->sendError('服务器异常');
         }
@@ -394,9 +524,14 @@ class Index extends BaseController
                 $user_id = UooUser::where('anonymous_openid', $res_code['anonymous_openid'])->where('anonymous_openid', '<>', '')->value('id');
             }
             $is_new = 0;
+            $house_id = 0;
+            $article_id = 0;
             if ($user_id) {
                 $user = UooUser::find($user_id);
                 $user->save(['openid' => $res_code['openid'], 'anonymous_openid' => $res_code['anonymous_openid']]);
+//                $user->save(['openid' => $res_code['openid'], 'anonymous_openid' => $res_code['anonymous_openid'],
+//                             'province' => $request->param('province'),
+//                             'city' => $request->param('city')]);
             } else {
                 $data = $request->except(['v', 'code', 'anonymous_code']);
                 $data['system_info'] = json_encode($data['system_info'], JSON_UNESCAPED_SLASHES);
@@ -404,10 +539,12 @@ class Index extends BaseController
                 $data['openid'] = $res_code['openid'];
                 $data['anonymous_openid'] = $res_code['anonymous_openid'];
                 $data['ip'] = get_real_ip();
+                $data['create_time'] = $data['enter_time'];
                 $data['precise_day'] = strtotime(date("Y-m-d", time()));
                 if (isset($data['inviter_id'])) {
                     $acid = $data['acid'];
                     $house_id = $data['house_id'];
+                    $article_id = $data['article_id'];
                     unset($data['acid']);
                     unset($data['house_id']);
                 }
@@ -421,6 +558,7 @@ class Index extends BaseController
                     ShareLog::create([
                         'share_id' => $share_id,
                         'house_id' => $house_id,
+                        'article_id' => $article_id,
                         'inviter_id' => $data['inviter_id'],
                         'invitee_id' => $user->id,
                         'is_reg' => $is_new ? 1 : 0
@@ -484,12 +622,14 @@ class Index extends BaseController
                     'precise_time' => $precise_time
                 ];
                 UserBehavior::create($data);
+                UooUser::where('id', $request->param('user_id'))->save(['active' => 1]);
             }
             if ($request->param('init') == 0) {
                 UserBehavior::where('user_id', $request->param('user_id'))->save(['leave_time' => $request->param('leave_time')]);
                 $behavior = UserBehavior::where('enter_time', $request->param('enter_time'))->where('user_id', $request->param('user_id'))->find();
                 if (isset($behavior->id) && $behavior->id) {
                     $behavior->save(['leave_time' => $request->param('leave_time')]);
+                    UooUser::where('id', $request->param('user_id'))->save(['active' => '0', 'last_login_time' => date("Y-m-d H:i:s", $request->param('leave_time'))]);
                     $behaviors = $request->param('behaviors');
                     $requestID = uniqid();
                     if (sizeof($behaviors)) {
@@ -608,6 +748,7 @@ class Index extends BaseController
     public function mapping()
     {
         try {
+            file_put_contents('./log.txt', http_build_query(request()->param()));
             $mapping = Form::find(request()->param('id'));
             $simple_extra = json_decode($mapping['simple_extra'], true);
             $extra = json_decode($mapping['extra'], true);
@@ -619,17 +760,25 @@ class Index extends BaseController
                     $where[] = ['country', 'in', $value['choose']];
                 }
             }
+
             $price = explode('_', $simple_extra['price']);
             if (isset($price) && sizeof($price)) {
                 $where[] = ['min_price_rmb', '>=', $price[0]];
                 $where[] = ['max_price_rmb', '<=', $price[1]];
             }
+
             $country_str = implode(',', $country);
             $field = ["IF(country IN ($country_str), 1, 0)" => 'is_target_country', 'id', 'name', 'desc', 'price', 'keywords', 'location', 'first_image' => 'image', 'min_price_rmb', 'max_price_rmb'];
             $houses = House::field($field)->where($where)->select();
             if (!sizeof($houses)) {
-                $where_country[] = $country;
-                $houses = House::field($field)->whereOr($where_country)->whereOr($price)->order('recent desc')->limit(5)->select();
+                $where_country[] = ['country', 'in', $country];;
+                $where_price[] = ['min_price_rmb', '>=', $price[0]];
+                $where_price[] = ['max_price_rmb', '<=', $price[1]];
+                $houses = House::field($field)->whereOr($where_country)->whereOr('id', 34)->order('recent desc')->limit(5)->select();
+                if (!sizeof($houses)) {
+                    // 还是没有随机查找5条租金最高房源
+                    $houses = House::field($field)->order('recent desc')->limit(5)->select();
+                }
             }
             foreach ($houses as &$value) {
                 $value['keywords'] = explode(',', $value['keywords']);
@@ -718,5 +867,15 @@ class Index extends BaseController
         ]);
 
         return $this->sendSuccess($newConfig);
+    }
+
+    // 保存搜索关键词
+    public function recordSearch(Request $request)
+    {
+        try {
+            Search::create($request->only(['user_id', 'keywords']));
+        } catch (Exception $exception) {
+            return $this->sendError('服务器异常');
+        }
     }
 }

@@ -51,9 +51,9 @@ class Statistics extends BaseController
     }
 
     // 用户列表
-    public function user()
+    public function user($pageNo, $pageSize)
     {
-        $send = $this->service->getUserList($pageNo = 1, $pageSize = 20);
+        $send = $this->service->getUserList($pageNo, $pageSize);
 
         return $this->sendSuccess($send);
     }

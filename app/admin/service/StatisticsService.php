@@ -479,6 +479,12 @@ class StatisticsService extends BaseService
         unset($field[0]);
         $total = UserBehaviorLog::where($where)->field($field)->find()->toArray();
 
+        $pages = config('uoolu.pages');
+
+        foreach ($data as &$value) {
+            $value['name'] = $pages[$value['page']];
+        }
+
         return [
             'total' => $total,
             'data' => $data,
@@ -518,9 +524,14 @@ class StatisticsService extends BaseService
     public function getUserList($pageNo, $pageSize)
     {
 
-        $field = ['user_number', 'nickname', 'avatar', 'gender', 'province', 'inviter_id', 'city', 'appname', 'system_info'];
+        $field = ['user_number', 'nickname', 'avatar', 'gender', 'province', 'inviter_id', 'city', 'appname', 'system_info', 'active', 'last_login_time', 'create_time'];
         $total = UooUser::count();
         $data = UooUser::field($field)->page($pageNo)->limit($pageSize)->order('create_time desc')->select();
+        foreach ($data as &$value) {
+            $value['province'] = $value['province'] ? $value['province'] : '--';
+            $value['city'] = $value['city'] ? $value['city'] : '--';
+            $value['last_login_time'] = $value['last_login_time'] ? $value['last_login_time'] : '--';
+        }
 
         return [
             'data' => $data,

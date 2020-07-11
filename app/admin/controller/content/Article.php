@@ -54,6 +54,15 @@ class Article extends BaseController
         return $this->sendSuccess($request->param());
     }
 
+	public function isTop(Request $request)
+	{
+		if ($this->service->reTop($request->param('id'), ['is_top' => $request->param('is_top')]) === false) {
+			return $this->sendError($this->service->getError());
+		}
+
+		return $this->sendSuccess();
+	}
+
     public function delete($id)
     {
         if ($this->service->remove($id) === false) {

@@ -23,7 +23,8 @@ class ArticleService extends BaseService
     {
         $total = $this->model->where('is_entering', 1)->count();
         $totalPage = ceil($total / $pageSize);
-        $articles = $this->model->field(['id', 'title', 'sub_title', 'cover', 'user_name', 'user_avatar'])->where('is_entering', 1)->page($pageNo)->limit($pageSize)->order('create_time desc')->select();
+        $field = ['id', 'title', 'sub_title', 'cover', 'user_name', 'user_avatar', 'is_top'];
+        $articles = $this->model->field($field)->where('is_entering', 1)->page($pageNo)->limit($pageSize)->order('is_top desc, update_time desc, create_time desc')->select();
 
         return [
             'data'       => $articles,
@@ -53,6 +54,7 @@ class ArticleService extends BaseService
         $articleData['entering_user_id'] = $uid;
         $articleData['content'] = str_replace("<img ", "<img width='100%'", $articleData['content']);
         unset($articleData['id']);
+        $articleData['content'] = str_replace("section", "div", $articleData['content']);
 
         $articleId = $this->model->where('link_id', $id)->value('id');
         if (!$articleId) {
@@ -70,6 +72,12 @@ class ArticleService extends BaseService
     {
         return $this->model->find($id)->save(['is_entering' => 1]);
     }
+
+	public function reTop($id, array $input)
+	{
+	    $input['update_time'] = time();
+		return $this->find($id)->save($input);
+	}
 
     public function remove($id)
     {

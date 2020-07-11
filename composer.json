@@ -26,7 +26,8 @@
         "overtrue/wechat": "~4.0",
         "xiaodi/think-permission": "0.6.2",
         "phpoffice/phpspreadsheet": "1.12.0",
-        "xiaodi/think-jwt": "v1.0.0-beta.15"
+        "xiaodi/think-jwt": "v1.0.0-beta.15",
+        "monolog/monolog": "^2.1"
     },
     "require-dev": {
         "symfony/var-dumper": "^4.2",
