@@ -54,7 +54,6 @@ Route::group('/user', function () {
     Route::rule('/info$', 'system.user/info', 'GET');
     Route::rule('/:id', 'system.user/update', 'PUT')->middleware(Permission::class, 'UpdateAccount');
     Route::rule('/:id', 'system.user/delete', 'DELETE')->middleware(Permission::class, 'DeleteAccount');
-    Route::rule('/:id', 'system.user/getInfo', 'GET');
 })->middleware(Jwt::class);
 
 // 日志
@@ -112,7 +111,10 @@ Route::group('/statistics', function () {
     Route::rule('/liveness', 'content.statistics/liveness', 'GET')->middleware(Permission::class, 'LivenessGet');
     Route::rule('/pageres', 'content.statistics/pageres', 'GET')->middleware(Permission::class, 'PageresGet');
     Route::rule('/dashboard', 'content.statistics/dashboard', 'GET')->middleware(Permission::class, 'DashboardGet');
-    Route::rule('/user', 'content.statistics/user', 'GET')->middleware(Permission::class, 'UooLuUserGet');
+    Route::rule('/user$', 'content.statistics/user', 'GET')->middleware(Permission::class, 'UooLuUserGet');
+    Route::rule('/user/:id/info', 'content.statistics/userInfo', 'GET')->middleware(Permission::class, 'UooLuUserInfoGet');
+    Route::rule('/user/:id/house', 'content.statistics/historyHouse', 'GET')->middleware(Permission::class, 'UooLuUserHistoryHouseGet');
+    Route::rule('/user/:id/article', 'content.statistics/historyArticle', 'GET')->middleware(Permission::class, 'UooLuUserHistoryArticleGet');
     Route::rule('/share', 'content.statistics/share', 'GET')->middleware(Permission::class, 'UooLuUserShare');
 })->middleware(Jwt::class);
 

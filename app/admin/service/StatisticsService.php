@@ -524,7 +524,7 @@ class StatisticsService extends BaseService
     public function getUserList($pageNo, $pageSize)
     {
 
-        $field = ['user_number', 'nickname', 'avatar', 'gender', 'province', 'inviter_id', 'city', 'appname', 'system_info', 'active', 'last_login_time', 'create_time'];
+        $field = ['id', 'user_number', 'nickname', 'avatar', 'gender', 'province', 'inviter_id', 'city', 'appname', 'system_info', 'active', 'last_login_time', 'create_time'];
         $total = UooUser::count();
         $data = UooUser::field($field)->page($pageNo)->limit($pageSize)->order('create_time desc')->select();
         foreach ($data as &$value) {
@@ -540,6 +540,16 @@ class StatisticsService extends BaseService
             'totalPage' => ceil($total / $pageSize),
             'totalCount' => $total
         ];
+    }
+
+    // 用户详情
+    public function getUserInfo($id)
+    {
+        $userInfo = UooUser::json(['system_info'])
+            ->field(['id', 'nickname', 'user_number', 'avatar', 'gender', 'mobile', 'inviter_id', 'system_info'])
+            ->find($id);
+
+        return $userInfo;
     }
 
     // 分享页面
@@ -790,4 +800,71 @@ class StatisticsService extends BaseService
 
         return $data;
     }
+
+    // 统计用户房源浏览记录
+    public function houseHistory($uid, $pageNo, $pageSize)
+    {
+        $subQuery = Db::table('collection')
+            ->alias('c')
+            ->field([
+                'DATE_FORMAT(
+                      FROM_UNIXTIME(c.create_time),
+                      "%Y-%m-%d %H:%i:%s"
+                    )' => 'time', 'c.house_id', 'h.name', 'h.first_image' => 'image', 'h.price', 'h.location'])
+            ->leftJoin(['house' => 'h'], 'c.house_id = h.id')
+            ->where(function ($query) use ($uid) {
+                $query->where('c.user_id', $uid);
+                $query->where('c.type', 2);
+                $query->where('c.house_id', '>', 0);
+                $query->where('c.article_id', '=', 0);
+            })
+            ->order('c.create_time desc')
+            ->limit(999999999999999999)
+            ->buildSql();
+        $count = Db::table($subQuery . ' t')->group('t.house_id')->count();
+        $historyHouses = Db::table($subQuery . ' t')
+                    ->field(['house_id' => 'id', 'name', 'time', 'price', 'location', 'image', 'count(name)' => 'num'])
+                    ->group('t.house_id')->order('t.time desc')->page($pageNo)->limit($pageSize)->select();
+        return [
+            'data' => $historyHouses,
+            'pageNo' => $pageNo,
+            'pageSize' => $pageSize,
+            'totalPage' => ceil($count / $pageSize),
+            'totalCount' => $count
+        ];
+    }
+
+    // 统计用户文章浏览记录
+    public function articleHistory($uid, $pageNo, $pageSize)
+    {
+        $subQuery = Db::table('collection')
+            ->alias('c')
+            ->field([
+                'DATE_FORMAT(
+                      FROM_UNIXTIME(c.create_time),
+                      "%Y-%m-%d %H:%i:%s"
+                    )' => 'time', 'c.article_id', 'a.title', 'a.cover'])
+            ->leftJoin(['article' => 'a'], 'c.article_id = a.id')
+            ->where(function ($query) use ($uid) {
+                $query->where('c.user_id', $uid);
+                $query->where('c.type', 2);
+                $query->where('c.article_id', '>', 0);
+                $query->where('c.house_id', '=', 0);
+            })
+            ->order('c.create_time desc')
+            ->limit(999999999999999999)
+            ->buildSql();
+        $count = Db::table($subQuery . ' t')->group('t.article_id')->count();
+        $historyArticles = Db::table($subQuery . ' t')
+            ->field(['article_id' => 'id', 'time', 'title', 'cover', 'count(title)' => 'num'])
+            ->group('t.article_id')->order('t.time desc')->page($pageNo)->limit($pageSize)->select();
+        return [
+            'data' => $historyArticles,
+            'pageNo' => $pageNo,
+            'pageSize' => $pageSize,
+            'totalPage' => ceil($count / $pageSize),
+            'totalCount' => $count
+        ];
+    }
+
 }

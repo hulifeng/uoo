@@ -18,6 +18,7 @@ Route::group('/', function () {
 
 Route::group('/:v/', function () {
     Route::rule('index', '/:v.Index/list', 'GET');
+    Route::rule('choice', '/:v.Index/choice', 'GET');
     Route::rule('city', '/:v.Index/city', 'GET');
     Route::rule('article/:id', '/:v.Index/article', 'GET');
     Route::rule('house/:id', '/:v.Index/house', 'GET');

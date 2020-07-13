@@ -60,6 +60,26 @@ class Index extends BaseController
         }
     }
 
+    // 精选文章
+    public function choice()
+    {
+        try {
+            $pageNo = request()->param('page');
+            $limit = 10;
+            $field = ['id', 'title', 'cover', 'user_name', 'user_avatar', 'publish_at', 'pv'];
+            $count = Article::where('is_top', 0)->count();
+            $article = Article::field($field)->where('is_top', 0)->page($pageNo)->limit($limit)->select();
+            foreach ($article as &$value) {
+                $value['publish_at'] = date("m-d H:i", strtotime($value['publish_at']));
+            }
+            $articleTotalPage = ceil($count /$limit);
+            $data = ['data' => $article, 'pageNo' => (int)$pageNo, 'totalPage' => $articleTotalPage, 'currentCount' => count($article), 'totalCount' => $count];
+            return $this->sendSuccess($data);
+        } catch (\Exception $exception) {
+            return $this->sendError('服务器异常');
+        }
+    }
+
     // 文章详情页
     public function article($id)
     {
@@ -552,7 +572,7 @@ class Index extends BaseController
                 $is_new = 1;
             }
             if (isset($user->id)) {
-                $user->save(['user_number' => sprintf('%09d', $user->id)]);
+                $user->save(['user_number' => '8' . sprintf('%08d', $user->id)]);
                 if (isset($data['inviter_id'])) {
                     $share_id = Share::where('acid', $acid)->value('id');
                     ShareLog::create([

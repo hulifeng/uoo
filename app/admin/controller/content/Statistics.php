@@ -58,6 +58,36 @@ class Statistics extends BaseController
         return $this->sendSuccess($send);
     }
 
+    // 获取用户信息
+    public function userInfo($id)
+    {
+        $send = $this->service->getUserInfo($id);
+
+        if ($send === false) return $this->sendError('缺少必传参数');
+
+        return $this->sendSuccess($send);
+    }
+
+    // 用户浏览过的房源
+    public function historyHouse($id, $pageNo, $pageSize)
+    {
+        $send = $this->service->houseHistory($id, (int) $pageNo, (int) $pageSize);
+
+        if ($send === false) return $this->sendError('缺少必传参数');
+
+        return $this->sendSuccess($send);
+    }
+
+    // 用户浏览过的文章
+    public function historyArticle($id, $pageNo, $pageSize)
+    {
+        $send = $this->service->articleHistory($id, (int) $pageNo, (int) $pageSize);
+
+        if ($send === false) return $this->sendError('缺少必传参数');
+
+        return $this->sendSuccess($send);
+    }
+
     // 分享
     public function share()
     {
