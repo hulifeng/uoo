@@ -41,4 +41,5 @@ Route::group('/:v/', function () {
     Route::rule('mapping', '/:v.Index/mapping', 'get');
     Route::rule('config', '/:v.Index/config', 'get');
     Route::rule('record_search', '/:v.Index/recordSearch', 'get');
+    Route::rule('bindArea', '/:v.Index/bindArea', 'get');
 })->allowCrossDomain();

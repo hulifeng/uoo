@@ -88,6 +88,7 @@ Route::group('/house', function () {
     Route::rule('/', 'content.house/list', 'GET')->middleware(Permission::class, 'HouseGet');
     Route::rule('/link', 'content.house/link', 'GET')->middleware(Permission::class, 'HouseLink');
     Route::rule('/', 'content.house/create', 'POST')->middleware(Permission::class, 'HousePost');
+    Route::rule('/isTop', 'content.house/isTop', 'POST')->middleware(Permission::class, 'HouseIsTop');
     Route::rule('/', 'content.house/delete', 'DELETE')->middleware(Permission::class, 'HouseDelete');
 })->middleware(Jwt::class);
 

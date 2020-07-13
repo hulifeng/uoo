@@ -24,7 +24,7 @@ class HouseService extends BaseService
         $total = $this->model->where('is_entering', 1)->count();
         $total_page = ceil($total/$pageSize);
 
-        $houses = $this->model->where('is_entering', 1)->limit($pageSize)->page($pageNo)->order('create_time desc')->select();
+        $houses = $this->model->where('is_entering', 1)->limit($pageSize)->page($pageNo)->order('is_top desc, update_time desc, create_time desc')->select();
 
         return [
             'data'       => $houses,
@@ -86,6 +86,12 @@ class HouseService extends BaseService
     public function add($id)
     {
         return $this->model->find($id)->save(['is_entering' => 1]);
+    }
+
+    public function reTop($id, array $input)
+    {
+        $input['update_time'] = time();
+        return $this->find($id)->save($input);
     }
 
     public function remove($id)

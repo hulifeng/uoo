@@ -51,7 +51,7 @@ class Index extends BaseController
 
             // 数据
             $houseTotal = House::field('id')->count();
-            $houses = House::field(['id', 'name' => 'title', 'desc', 'price', 'location' => 'city', 'first_image' => 'image'])->page($pageNo)->limit($pageSize)->order('create_time desc')->select();
+            $houses = House::field(['id', 'name' => 'title', 'desc', 'price', 'location' => 'city', 'first_image' => 'image'])->page($pageNo)->limit($pageSize)->order('is_top desc, update_time desc, create_time desc')->select();
             $houseTotalPage = ceil($houseTotal / $pageSize);
             $send['house'] = ['data' => $houses, 'pageNo' => $pageNo, 'totalPage' => $houseTotalPage, 'currentCount' => count($houses), 'totalCount' => $houseTotal];
             return $this->sendSuccess($send);
@@ -68,7 +68,7 @@ class Index extends BaseController
             $limit = 10;
             $field = ['id', 'title', 'cover', 'user_name', 'user_avatar', 'publish_at', 'pv'];
             $count = Article::where('is_top', 0)->count();
-            $article = Article::field($field)->where('is_top', 0)->page($pageNo)->limit($limit)->select();
+            $article = Article::field($field)->where('is_top', 0)->page($pageNo)->limit($limit)->order('publish_at desc')->select();
             foreach ($article as &$value) {
                 $value['publish_at'] = date("m-d H:i", strtotime($value['publish_at']));
             }
@@ -85,7 +85,7 @@ class Index extends BaseController
     {
         try {
             if (!$id) return $this->sendError('缺省参数！');
-            $article = Article::field(['title', 'sub_title', 'content', 'create_time'])->find($id)->toArray();
+            $article = Article::field(['title', 'sub_title', 'content', 'user_name', 'user_avatar', 'publish_at', 'pv'])->find($id)->toArray();
             $article['content'] = str_replace('<p><br/></p>', '', $article['content']);
             $article['is_collection'] = 0;
             $article['is_like'] = 0;
@@ -245,7 +245,7 @@ class Index extends BaseController
             if (request()->param('type') == 2) {
                 Collection::create(request()->only(['article_id', 'house_id', 'user_id', 'type']));
                 if (request()->param('house_id')) House::where('id', request()->param('house_id'))->inc('view_count')->update();
-                if (request()->param('article_id')) Article::where('id', request()->param('article_id'))->inc('view_count')->update();
+                if (request()->param('article_id')) Article::where('id', request()->param('article_id'))->inc('pv')->update();
             } else {
                 if (!request()->param('status')) {
                     if (request()->param('house_id')) Collection::where('house_id', request()->param('house_id'))->where('type', request()->param('type'))->where('user_id', request()->param('user_id'))->select()->delete();
@@ -548,6 +548,7 @@ class Index extends BaseController
             $article_id = 0;
             if ($user_id) {
                 $user = UooUser::find($user_id);
+                $ip = $user->ip;
                 $user->save(['openid' => $res_code['openid'], 'anonymous_openid' => $res_code['anonymous_openid']]);
 //                $user->save(['openid' => $res_code['openid'], 'anonymous_openid' => $res_code['anonymous_openid'],
 //                             'province' => $request->param('province'),
@@ -559,6 +560,7 @@ class Index extends BaseController
                 $data['openid'] = $res_code['openid'];
                 $data['anonymous_openid'] = $res_code['anonymous_openid'];
                 $data['ip'] = get_real_ip();
+                $ip = $data['ip'];
                 $data['create_time'] = $data['enter_time'];
                 $data['precise_day'] = strtotime(date("Y-m-d", time()));
                 if (isset($data['inviter_id'])) {
@@ -584,6 +586,9 @@ class Index extends BaseController
                         'is_reg' => $is_new ? 1 : 0
                     ]);
                 }
+            }
+            if ($ip) {
+                $this->bindArea($user->id, $ip);
             }
             return $this->sendSuccess(['user_id' => $user->id, 'key' => $res_code['session_key'], 'is_new' => $is_new]);
         } catch (\Exception $exception) {
@@ -896,6 +901,28 @@ class Index extends BaseController
             Search::create($request->only(['user_id', 'keywords']));
         } catch (Exception $exception) {
             return $this->sendError('服务器异常');
+        }
+    }
+
+    // 保存区域
+    public function bindArea($id, $ip)
+    {
+        try {
+           $url = 'https://restapi.amap.com/v3/ip?key=2004f145cf3a39a72e9ca70ca4b2a1dc&ip=' . $ip;
+           $client = new Client();
+           $response = $client->get($url);
+           $responseJson = json_decode($response->getBody()->getContents(), true);
+           if ($responseJson['status']) {
+               $user = UooUser::find($id);
+               $user->save([
+                   'province' => $responseJson['province'],
+                   'city' => $responseJson['city'],
+                   'adcode' => $responseJson['adcode'],
+               ]);
+           }
+        } catch (Exception $exception) {
+            return $this->sendError('绑定ip
+            失败');
         }
     }
 }

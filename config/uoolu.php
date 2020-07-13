@@ -3,8 +3,8 @@
 declare(strict_types=1);
 
 return [
-    'appid' => 'tt8646f0fb196ce1d7',
-    'secret' => '50a5064534ee33e311050bb378008ea1670f788f',
+    'appid' => 'ttfdd98b6462e328b2',
+    'secret' => '1400b4036e79e5febdae085c4a644d2948bc2dac',
     'pages' => [
         'pages/index/index' => '首页',
         'pages/my/my' => '我的',
