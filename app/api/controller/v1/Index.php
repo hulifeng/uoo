@@ -13,6 +13,7 @@ use app\BaseController;
 use app\common\model\Article;
 use app\common\model\City;
 use app\common\model\Collection;
+use app\common\model\Config;
 use app\common\model\House;
 use app\common\model\Search;
 use app\common\model\Share;
@@ -95,6 +96,8 @@ class Index extends BaseController
                 $is_like = Collection::where("house_id", $id)->where("user_id", request()->param('user_id'))->where('type', 3)->value('id');
                 $article['is_like'] = isset($is_like) && $is_like ? 1 : 0;
             }
+            $article_switch = Config::where('name', 'article_form_switch')->value('value');
+            $article['article_switch'] = (int) $article_switch;
             return $this->sendSuccess($article);
         } catch (\Exception $exception) {
             return $this->sendError('服务器异常');
@@ -132,6 +135,8 @@ class Index extends BaseController
                     }
                 }
                 $house['link'] = $link;
+                $house_form_switch = Config::where('name', 'house_form_switch')->value('value');
+                $house['house_switch'] = (int) $house_form_switch;
                 return $this->sendSuccess($house);
             }
         } catch (\Exception $exception) {
@@ -523,8 +528,10 @@ class Index extends BaseController
             $collection_count = Collection::where("user_id", request()->param('user_id'))->where("type", 1)->count();
             $like_count = Collection::where("user_id", request()->param('user_id'))->where("type", 3)->count();
             $user_info = UooUser::where("id", request()->param('user_id'))->field(['nickname', 'avatar'])->find();
-            $mapping_result = Form::where("user_id", request()->param('user_id'))->where('type', '1')->order('create_time desc')->value('id');
-            return $this->sendSuccess(['view' => $view_count, 'like' => $like_count, 'collection' => $collection_count, 'user_info' => $user_info, 'mapping_id' => $mapping_result]);
+            $mapping = Form::where("user_id", request()->param('user_id'))->where('type', '1')->order('create_time desc')->value('id');
+            $mapping_result = $mapping ? $mapping : 0;
+            $mapping_switch = Config::where('name', 'mapping_function_switch')->value('value');
+            return $this->sendSuccess(['view' => $view_count, 'like' => $like_count, 'collection' => $collection_count, 'user_info' => $user_info, 'mapping_id' => $mapping_result, 'mapping_switch' => (int) $mapping_switch]);
         } catch (\Exception $exception) {
             return $this->sendError('服务器异常');
         }

@@ -10,6 +10,7 @@ namespace app\admin\controller\content;
 
 use app\admin\service\FormService;
 use app\BaseController;
+use app\Request;
 
 class Form extends BaseController
 {
@@ -33,6 +34,22 @@ class Form extends BaseController
     public function save($id)
     {
         if ($this->service->renew($id) === false) {
+            return $this->sendError($this->service->getError());
+        }
+
+        return $this->sendSuccess();
+    }
+
+    public function formConfig()
+    {
+        $send = $this->service->getFormConfig();
+
+        return $this->sendSuccess($send);
+    }
+
+    public function fromConfigUpdate(Request $request)
+    {
+        if ($this->service->saveFormConfig($request->param()) === false) {
             return $this->sendError($this->service->getError());
         }
 

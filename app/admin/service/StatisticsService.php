@@ -256,7 +256,7 @@ class StatisticsService extends BaseService
                 $cdate = "DATE_ADD('{$end}', INTERVAL + 1 DAY)";
                 $start = strtotime(date("Y-m-d 00:00:00", strtotime(request()->param('start'))));
                 $end = strtotime(date("Y-m-d 23:59:59", strtotime(request()->param('end'))));
-                $limit = TimeService::getBetweenTwoDate(request()->param('start'), request()->param('end'));
+                $limit = TimeService::getBetweenTwoDate($start, $end);
                 break;
         }
 
@@ -751,7 +751,7 @@ class StatisticsService extends BaseService
                 $cdate = "DATE_ADD('{$end}', INTERVAL + 1 DAY)";
                 $start = strtotime(date("Y-m-d 00:00:00", strtotime(request()->param('start'))));
                 $end = strtotime(date("Y-m-d 23:59:59", strtotime(request()->param('end'))));
-                $limit = TimeService::getBetweenTwoDate(request()->param('start'), request()->param('end'));
+                $limit = TimeService::getBetweenTwoDate($start, $end);
                 break;
         }
 

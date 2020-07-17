@@ -126,3 +126,8 @@ Route::group('form', function () {
     Route::rule('/:id$', 'content.form/save', 'POST')->middleware(Permission::class, 'FormSave');
 })->middleware(Jwt::class);
 
+Route::group('config', function () {
+    Route::rule('/', 'content.config/list', 'GET')->middleware(Permission::class, 'configGet');;
+    Route::rule('/', 'content.config/update', 'PUT')->middleware(Permission::class, 'configUpdate');;
+})->middleware(Jwt::class);
+
