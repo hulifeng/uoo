@@ -19,7 +19,8 @@ return [
         'pages/my/basic/history' => '我的浏览',
         'pages/my/basic/share' => '我的分享',
         'pages/my/basic/mapping' => '我的匹配',
-        'pages/my/basic/mapping-result' => '我的匹配结果'
+        'pages/my/basic/mapping-result' => '我的匹配结果',
+        'pages/choiceness/choiceness' => '精选',
     ],
     'captcha' => [
         'appid' =>  'ngus29G81YkOjk4tM',

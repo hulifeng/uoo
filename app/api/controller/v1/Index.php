@@ -24,6 +24,7 @@ use app\common\model\UserBehavior;
 use app\common\model\UserBehaviorLog;
 use app\Request;
 use GuzzleHttp\Client;
+use Monolog\Logger;
 use think\Db;
 use think\Exception;
 
@@ -97,7 +98,9 @@ class Index extends BaseController
                 $article['is_like'] = isset($is_like) && $is_like ? 1 : 0;
             }
             $article_switch = Config::where('name', 'article_form_switch')->value('value');
-            $article['article_switch'] = (int) $article_switch;
+            $article_make_phone_button = Config::where('name', 'article_make_phone_button')->value('value');
+            $article['article_form_switch'] = (int) $article_switch;
+            $article['article_make_phone_button'] = (int) $article_make_phone_button;
             return $this->sendSuccess($article);
         } catch (\Exception $exception) {
             return $this->sendError('服务器异常');
@@ -136,7 +139,9 @@ class Index extends BaseController
                 }
                 $house['link'] = $link;
                 $house_form_switch = Config::where('name', 'house_form_switch')->value('value');
-                $house['house_switch'] = (int) $house_form_switch;
+                $house_make_phone_button = Config::where('name', 'house_make_phone_button')->value('value');
+                $house['house_form_switch'] = (int) $house_form_switch;
+                $house['house_make_phone_button'] = (int) $house_make_phone_button;
                 return $this->sendSuccess($house);
             }
         } catch (\Exception $exception) {
@@ -571,7 +576,7 @@ class Index extends BaseController
                 $data['create_time'] = $data['enter_time'];
                 $data['precise_day'] = strtotime(date("Y-m-d", time()));
                 if (isset($data['inviter_id'])) {
-                    $acid = $data['acid'];
+                    $acid = isset($data['acid']) ? $data['acid'] : 'A-' . uniqid();
                     $house_id = $data['house_id'];
                     $article_id = $data['article_id'];
                     unset($data['acid']);
@@ -584,14 +589,16 @@ class Index extends BaseController
                 $user->save(['user_number' => '8' . sprintf('%08d', $user->id)]);
                 if (isset($data['inviter_id'])) {
                     $share_id = Share::where('acid', $acid)->value('id');
-                    ShareLog::create([
-                        'share_id' => $share_id,
-                        'house_id' => $house_id,
-                        'article_id' => $article_id,
-                        'inviter_id' => $data['inviter_id'],
-                        'invitee_id' => $user->id,
-                        'is_reg' => $is_new ? 1 : 0
-                    ]);
+                    if ($share_id) {
+                        ShareLog::create([
+                            'share_id' => $share_id,
+                            'house_id' => $house_id,
+                            'article_id' => $article_id,
+                            'inviter_id' => $data['inviter_id'],
+                            'invitee_id' => $user->id,
+                            'is_reg' => $is_new ? 1 : 0
+                        ]);
+                    }
                 }
             }
             if ($ip) {
@@ -930,6 +937,25 @@ class Index extends BaseController
         } catch (Exception $exception) {
             return $this->sendError('绑定ip
             失败');
+        }
+    }
+
+    // 记录拨打电话次数
+    public function makePhone()
+    {
+        try {
+            $id = request()->param('id');
+            $type = request()->param('type');
+            if ($id) {
+                if ($type == 1) {
+                    // 记录房源拨打电话次数
+                    House::where('id', $id)->inc('make_phone_count')->update();
+                } else {
+                    Article::where('id', $id)->inc('make_phone_count')->update();
+                }
+            }
+        } catch (\Exception $exception) {
+            return $this->sendError('记录拨打电话次数失败');
         }
     }
 }

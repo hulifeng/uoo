@@ -2,12 +2,6 @@
 
 declare(strict_types=1);
 
-/*
- * @contact  QQ Group 9265959
- * @author   Eden Leung codedge@163.com
- * @copyright 2020 Mason
- */
-
 use think\facade\Route;
 
 Route::group('/', function () {
@@ -42,4 +36,5 @@ Route::group('/:v/', function () {
     Route::rule('config', '/:v.Index/config', 'get');
     Route::rule('record_search', '/:v.Index/recordSearch', 'get');
     Route::rule('bindArea', '/:v.Index/bindArea', 'get');
+    Route::rule('makePhone', '/:v.Index/makePhone', 'post');
 })->allowCrossDomain();
